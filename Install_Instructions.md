@@ -15,7 +15,7 @@ This application is designed to run locally on your machine and communicate with
 ### Windows
 1. Open the folder containing the project in File Explorer.
 2. Double-click run.bat.
-3. The script will automatically create a virtual environment, install requirements, and launch the app in your browser at http://localhost:5001.
+3. The script will automatically create a virtual environment, install requirements, and launch the app in your browser at http://localhost:1080.
 
 ### macOS / Linux
 1. Open your Terminal and navigate to the project folder.
@@ -23,7 +23,7 @@ This application is designed to run locally on your machine and communicate with
    chmod +x run.sh
 3. Run the script:
    ./run.sh
-4. Open your browser to http://localhost:5001.
+4. Open your browser to http://localhost:1080.
 
 ---
 

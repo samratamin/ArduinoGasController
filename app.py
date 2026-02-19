@@ -22,7 +22,8 @@ SERIAL_TIMEOUT = 0.5
 app_settings = {
     "max_purge_time_seconds": 60,
     "show_pin_number": False,
-    "check_interval_seconds": 30
+    "check_interval_seconds": 30,
+    "port": 1080
 }
 
 # Global state
@@ -277,7 +278,8 @@ if __name__ == '__main__':
     
     # Get configuration from environment variables if available
     host = os.environ.get('HOST', '0.0.0.0')
-    port = int(os.environ.get('PORT', 5001))
+    env_port = os.environ.get('PORT')
+    port = int(env_port) if env_port else app_settings.get('port', 1080)
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
     
     logging.info(f"Starting Gas Controller on {host}:{port} (Debug: {debug})")

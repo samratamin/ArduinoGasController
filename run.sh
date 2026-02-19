@@ -32,5 +32,5 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 fi
 
 # Run the app
-echo "Starting Gas Controller on http://localhost:5001..."
+echo "Starting Gas Controller on http://localhost:1080..."
 python app.py

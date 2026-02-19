@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 REM Run the application
 echo ------------------------------------------------------------------
-echo [INFO] Gas Controller starting on http://localhost:5001
+echo [INFO] Gas Controller starting on http://localhost:1080
 echo [INFO] Close this window to stop the application.
 echo ------------------------------------------------------------------
 python app.py
