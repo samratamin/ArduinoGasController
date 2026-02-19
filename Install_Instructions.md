@@ -20,11 +20,11 @@ This application is designed to run locally on your machine and communicate with
 ### **macOS / Linux**
 1.  Open your Terminal and navigate to the project folder.
 2.  Make the script executable:
-    ```bash
+    ```
     chmod +x run.sh
     ```
 3.  Run the script:
-    ```bash
+    ```
     ./run.sh
     ```
 4.  Open your browser to `http://localhost:5001`.
@@ -36,18 +36,18 @@ This application is designed to run locally on your machine and communicate with
 If you prefer to set up your environment manually:
 
 1.  **Create a Virtual Environment**:
-    ```bash
+    ```
     python -m venv venv
     ```
 2.  **Activate it**:
     -   Windows: `venv\Scripts\activate`
     -   macOS/Linux: `source venv/bin/activate`
 3.  **Install Dependencies**:
-    ```bash
+    ```
     pip install -r requirements.txt
     ```
 4.  **Launch the App**:
-    ```bash
+    ```
     python app.py
     ```
 
@@ -57,7 +57,7 @@ If you prefer to set up your environment manually:
 
 ### **Serial Port Access (Linux Only)**
 If the app can't connect to your Arduino, you might need to add your user to the `dialout` group:
-```bash
+```
 sudo usermod -a -G dialout $USER
 ```
 *Note: You must log out and back in for this change to take effect.*
