@@ -3,8 +3,8 @@
 This application is designed to run locally on your machine and communicate with an Arduino over USB (Serial).
 
 ### Prerequisites
-1. Python 3.x installed (Check with 'python --version' or 'python3 --version').
-2. Arduino connected to your computer via USB.
+1. Python 3.x installed (Check with 'python --version' or 'python3 --version').  This is especially important on Windows as it typically does not ship with Python. Windows installers can be found at https://www.python.org/downloads/windows/.
+2. Arduino connected to your computer via USB. If the arduino program needs to be flashed to a board, you will also need to have the Arduino app installed on your machine (https://www.arduino.cc/en/software)
 3. Arduino Sketch uploaded: Make sure the sketch in Arduino_GasController_Serial_v1/GasController_Serial_v1/GasController_Serial_v1.ino is uploaded to your Arduino.
 4. Gas Configuration: Ensure the gas names and pins in GasMapping.csv match your physical Arduino wiring.
 
