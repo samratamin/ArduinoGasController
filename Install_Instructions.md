@@ -19,7 +19,7 @@ This application is designed to run locally on your machine and communicate with
 
 ### **macOS / Linux**
 1.  Open your Terminal and navigate to the project folder.
-2.  Ensure the file is executable (only needs to be done once):
+2.  Make the script executable:
     ```bash
     chmod +x run.sh
     ```
@@ -28,21 +28,6 @@ This application is designed to run locally on your machine and communicate with
     ./run.sh
     ```
 4.  Open your browser to `http://localhost:5001`.
-
----
-
-## 🐋 Docker Setup (Advanced / Linux)
-
-Docker is the best way to run this on Linux consistently. Note: Serial port passthrough via Docker can be unstable on Windows/macOS.
-
-1.  Open your terminal in the project folder.
-2.  Run:
-    ```bash
-    docker-compose up --build -d
-    ```
-3.  The app will be available at `http://localhost:5001`.
-
-*Note: You may need to edit `docker-compose.yml` to match your Arduino's serial port (e.g., `/dev/ttyUSB0` vs `/dev/ttyACM0`).*
 
 ---
 

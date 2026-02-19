@@ -130,6 +130,7 @@
         const mappingErrorBox = document.getElementById('mappingErrorBox');
         const errorText = document.getElementById('errorText');
         const regenBtn = document.getElementById('regenBtn');
+        let purgeInProgress = false;
 
         function updateStatus() {
             fetch('/status')
@@ -148,10 +149,12 @@
                     statusText.innerText = 'Connected: ' + data.port;
                     statusText.className = 'status-connected-text';
                     statusDot.className = 'status-dot status-connected-dot';
-                    purgeBtn.disabled = false;
                     
-                    if (statusArea.innerText === 'Connecting...' || statusArea.innerText === 'Initializing serial scan...') {
-                        statusArea.innerText = 'Ready';
+                    if (!purgeInProgress) {
+                        purgeBtn.disabled = false;
+                        if (statusArea.innerText === 'Connecting...' || statusArea.innerText === 'Initializing serial scan...') {
+                            statusArea.innerText = 'Ready';
+                        }
                     }
                 } else {
                     statusText.innerText = 'Disconnected';
@@ -209,8 +212,9 @@
 
         purgeBtn.addEventListener('click', () => {
             const gas = gasSelection.value;
-            const time = purgeTimeInput.value;
+            const time = parseInt(purgeTimeInput.value) || 10;
             
+            purgeInProgress = true;
             purgeBtn.disabled = true;
             statusArea.innerText = 'Processing purge...';
             statusArea.className = 'status-area';
@@ -224,13 +228,24 @@
             .then(data => {
                 statusArea.innerText = data.message;
                 statusArea.className = 'status-area ' + data.status;
-                setTimeout(() => { 
-                    if (statusText.innerText.includes('Connected')) purgeBtn.disabled = false;
-                }, 1000);
+                
+                if (data.status === 'success') {
+                    // Lock button for the full purge duration
+                    setTimeout(() => { 
+                        purgeInProgress = false;
+                        statusArea.innerText = `Purging ${gas} Completed`;
+                        statusArea.className = 'status-area success';
+                        // The next updateStatus() call will re-enable the button if connected
+                    }, time * 1000);
+                } else {
+                    purgeInProgress = false;
+                    purgeBtn.disabled = false;
+                }
             })
             .catch(err => {
                 statusArea.innerText = 'Communication failed';
                 statusArea.className = 'status-area error';
+                purgeInProgress = false;
                 purgeBtn.disabled = false;
             });
         });
