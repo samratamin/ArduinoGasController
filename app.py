@@ -22,7 +22,7 @@ SERIAL_TIMEOUT = 0.5
 app_settings = {
     "max_purge_time_seconds": 60,
     "show_pin_number": False,
-    "check_interval": 30
+    "check_interval_seconds": 30
 }
 
 # Global state
@@ -130,7 +130,7 @@ def check_for_changes(force=False):
     global last_check_time, last_mapping_mtime
     
     now = time.time()
-    if force or (now - last_check_time > app_settings.get('check_interval', 30)):
+    if force or (now - last_check_time > app_settings.get('check_interval_seconds', 30)):
         last_check_time = now
         if os.path.exists(GAS_MAPPING_FILE):
             current_mtime = os.path.getmtime(GAS_MAPPING_FILE)
