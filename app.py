@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import serial
 import serial.tools.list_ports
 import pandas as pd
@@ -13,8 +14,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Constants
 GAS_MAPPING_FILE = 'GasMapping.csv'
+SETTINGS_FILE = 'AppSettings.json'
 BAUD_RATE = 115200 # Matches GasController_Serial_v1.ino
 SERIAL_TIMEOUT = 0.5 
+
+# Default Settings (Overridden by AppSettings.json)
+app_settings = {
+    "max_purge_time": 60,
+    "show_pin_number": False,
+    "check_interval": 30
+}
 
 # Global state
 ser = None
@@ -24,7 +33,18 @@ last_mapping_mtime = 0
 last_check_time = 0
 mapping_was_reloaded = False
 mapping_error = None
-CHECK_INTERVAL = 30 
+
+def load_settings():
+    """Load application settings from JSON file"""
+    global app_settings
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                new_settings = json.load(f)
+                app_settings.update(new_settings)
+                logging.info(f"Loaded settings from {SETTINGS_FILE}: {app_settings}")
+        except Exception as e:
+            logging.error(f"Error loading {SETTINGS_FILE}: {e}")
 
 def create_template_mapping():
     """Create a template GasMapping.csv file"""
@@ -110,7 +130,7 @@ def check_for_changes(force=False):
     global last_check_time, last_mapping_mtime
     
     now = time.time()
-    if force or (now - last_check_time > CHECK_INTERVAL):
+    if force or (now - last_check_time > app_settings.get('check_interval', 30)):
         last_check_time = now
         if os.path.exists(GAS_MAPPING_FILE):
             current_mtime = os.path.getmtime(GAS_MAPPING_FILE)
@@ -162,7 +182,10 @@ def auto_connect_serial():
 def index():
     """Render main page"""
     check_for_changes(force=True)
-    return render_template('index.html', gases=gas_mappings, mapping_error=mapping_error)
+    return render_template('index.html', 
+                           gases=gas_mappings, 
+                           mapping_error=mapping_error,
+                           settings=app_settings)
 
 @app.route('/regenerate_mapping', methods=['POST'])
 def handle_regenerate():
@@ -188,7 +211,8 @@ def handle_status():
         "connected": bool(ser and ser.is_open),
         "port": connected_port,
         "mapping_reloaded": mapping_was_reloaded,
-        "mapping_error": mapping_error
+        "mapping_error": mapping_error,
+        "show_pin_number": app_settings.get('show_pin_number')
     }
     
     if mapping_was_reloaded:
@@ -215,7 +239,12 @@ def handle_purge():
     
     data = request.get_json()
     gas_name = data.get('gas')
-    purge_time = data.get('time', 10)
+    purge_time = int(data.get('time', 10))
+    
+    # Enforce max purge time from settings
+    max_time = app_settings.get('max_purge_time', 60)
+    if purge_time > max_time:
+        return jsonify({"status": "error", "message": f"Purge time exceeds maximum of {max_time}s"}), 400
     
     # Find pin for gas
     pin = None
@@ -242,6 +271,7 @@ def handle_purge():
         return jsonify({"status": "error", "message": "Serial communication failed"}), 500
 
 if __name__ == '__main__':
+    load_settings()
     load_gas_mappings()
     mapping_was_reloaded = False # Reset flag so first load doesn't show reload notification
     

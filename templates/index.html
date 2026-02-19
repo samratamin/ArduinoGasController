@@ -93,14 +93,16 @@
             <label for="gasSelection">Purge Gas</label>
             <select id="gasSelection">
                 {% for gas in gases %}
-                <option value="{{ gas.Gas }}">{{ gas.Gas }}</option>
+                <option value="{{ gas.Gas }}">
+                    {{ gas.Gas }} {{ '(' + gas.Pin|string + ')' if settings.get('show_pin_number') else '' }}
+                </option>
                 {% endfor %}
             </select>
         </div>
 
         <div class="form-group">
             <label for="purgeTime">Purge Duration (sec)</label>
-            <input type="number" id="purgeTime" min="1" max="600" value="10">
+            <input type="number" id="purgeTime" min="1" max="{{ settings.get('max_purge_time', 60) }}" value="10">
         </div>
 
         <button id="purgeBtn" disabled>PURGE</button>
@@ -170,7 +172,8 @@
                     data.gases.forEach(gas => {
                         const opt = document.createElement('option');
                         opt.value = gas.Gas;
-                        opt.innerText = gas.Gas;
+                        const pinSuffix = data.show_pin_number ? ` (${gas.Pin})` : '';
+                        opt.innerText = `${gas.Gas}${pinSuffix}`;
                         gasSelection.appendChild(opt);
                     });
                     
