@@ -102,7 +102,7 @@
 
         <div class="form-group">
             <label for="purgeTime">Purge Duration (sec)</label>
-            <input type="number" id="purgeTime" min="1" max="{{ settings.get('max_purge_time', 60) }}" value="10">
+            <input type="number" id="purgeTime" min="1" max="{{ settings.get('max_purge_time_seconds', 60) }}" value="10">
         </div>
 
         <button id="purgeBtn" disabled>PURGE</button>

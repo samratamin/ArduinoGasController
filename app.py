@@ -20,7 +20,7 @@ SERIAL_TIMEOUT = 0.5
 
 # Default Settings (Overridden by AppSettings.json)
 app_settings = {
-    "max_purge_time": 60,
+    "max_purge_time_seconds": 60,
     "show_pin_number": False,
     "check_interval": 30
 }
@@ -242,7 +242,7 @@ def handle_purge():
     purge_time = int(data.get('time', 10))
     
     # Enforce max purge time from settings
-    max_time = app_settings.get('max_purge_time', 60)
+    max_time = app_settings.get('max_purge_time_seconds', 60)
     if purge_time > max_time:
         return jsonify({"status": "error", "message": f"Purge time exceeds maximum of {max_time}s"}), 400
     
