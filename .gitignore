@@ -1,0 +1,12 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS specific
+.DS_Store
+
+# User-specific configuration or temporary data
+# GasMapping.csv is typically tracked as a template, though optional

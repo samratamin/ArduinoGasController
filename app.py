@@ -20,6 +20,11 @@ SERIAL_TIMEOUT = 0.5
 ser = None
 gas_mappings = []
 connected_port = None
+last_mapping_mtime = 0
+last_check_time = 0
+mapping_was_reloaded = False
+mapping_error = None
+CHECK_INTERVAL = 30 
 
 def create_template_mapping():
     """Create a template GasMapping.csv file"""
@@ -41,25 +46,80 @@ def create_template_mapping():
         return template_data
 
 def load_gas_mappings():
-    """Load gas mapping from CSV file, creating template if missing or corrupted"""
-    global gas_mappings
+    """Load gas mapping from CSV file, creating template if missing"""
+    global gas_mappings, last_mapping_mtime, mapping_was_reloaded, mapping_error
     
     if not os.path.exists(GAS_MAPPING_FILE):
         logging.warning(f"{GAS_MAPPING_FILE} not found. Creating template...")
         gas_mappings = create_template_mapping()
+        last_mapping_mtime = os.path.getmtime(GAS_MAPPING_FILE)
+        mapping_was_reloaded = True
+        mapping_error = None
         return
 
     try:
+        new_mtime = os.path.getmtime(GAS_MAPPING_FILE)
         df = pd.read_csv(GAS_MAPPING_FILE)
-        if df.empty or 'Gas' not in df.columns or 'Pin' not in df.columns:
-            raise ValueError("CSV is empty or missing required columns")
+        
+        # Check basic column existence
+        if df.empty:
+             raise ValueError("CSV is empty")
+        if 'Gas' not in df.columns or 'Pin' not in df.columns:
+            raise ValueError("Missing columns ('Gas', 'Pin'). Ensure the first line is exactly 'Gas,Pin'")
             
-        gas_mappings = df.to_dict('records')
+        # Row-by-row validation
+        validated_mappings = []
+        seen_pins = {}
+        for index, row in df.iterrows():
+            gas = str(row['Gas']).strip()
+            pin = row['Pin']
+            
+            # Check for empty gas name
+            if pd.isna(row['Gas']) or gas == "" or gas.lower() == "nan":
+                 raise ValueError(f"Line {index+2}: Gas name cannot be empty")
+            
+            # Check for valid Pin (ensure it's not NaN or non-numeric)
+            if pd.isna(pin):
+                 raise ValueError(f"Line {index+2}: Missing Pin for gas '{gas}'. Did you forget a comma?")
+            
+            try:
+                pin_int = int(pin)
+            except (ValueError, TypeError):
+                raise ValueError(f"Line {index+2}: Pin for '{gas}' must be a whole number (found '{pin}')")
+                
+            # Check for duplicate pins
+            if pin_int in seen_pins:
+                raise ValueError(f"Line {index+2}: Duplicate Pin detected! Pin {pin_int} is already assigned to '{seen_pins[pin_int]}'")
+                
+            seen_pins[pin_int] = gas
+            validated_mappings.append({"Gas": gas, "Pin": pin_int})
+            
+        gas_mappings = validated_mappings
+        last_mapping_mtime = new_mtime
+        mapping_was_reloaded = True
+        mapping_error = None # Clear previous error if successful
         logging.info(f"Loaded {len(gas_mappings)} gas mappings from {GAS_MAPPING_FILE}")
     except Exception as e:
-        logging.error(f"Error loading gas mappings (file may be corrupted): {e}")
-        logging.info("Regenerating template mapping...")
-        gas_mappings = create_template_mapping()
+        mapping_error = str(e)
+        logging.error(f"Error loading gas mappings: {mapping_error}")
+        # Mark as reloaded so the error is reported to the UI
+        mapping_was_reloaded = True
+
+def check_for_changes(force=False):
+    """Periodic check for File changes"""
+    global last_check_time, last_mapping_mtime
+    
+    now = time.time()
+    if force or (now - last_check_time > CHECK_INTERVAL):
+        last_check_time = now
+        if os.path.exists(GAS_MAPPING_FILE):
+            current_mtime = os.path.getmtime(GAS_MAPPING_FILE)
+            if current_mtime > last_mapping_mtime:
+                logging.info(f"Change detected in {GAS_MAPPING_FILE}. Reloading...")
+                load_gas_mappings()
+        else:
+             logging.warning(f"{GAS_MAPPING_FILE} missing during periodic check. Regenerating...")
+             load_gas_mappings()
 
 def get_serial_ports():
     """List available serial ports"""
@@ -101,25 +161,53 @@ def auto_connect_serial():
 @app.route('/')
 def index():
     """Render main page"""
-    return render_template('index.html', gases=gas_mappings)
+    check_for_changes(force=True)
+    return render_template('index.html', gases=gas_mappings, mapping_error=mapping_error)
+
+@app.route('/regenerate_mapping', methods=['POST'])
+def handle_regenerate():
+    """Trigger template regeneration"""
+    global gas_mappings, last_mapping_mtime, mapping_was_reloaded, mapping_error
+    try:
+        gas_mappings = create_template_mapping()
+        last_mapping_mtime = os.path.getmtime(GAS_MAPPING_FILE)
+        mapping_was_reloaded = True
+        mapping_error = None
+        return jsonify({"status": "success", "message": "Template mapping recreated!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Failed to recreate: {e}"}), 500
 
 @app.route('/status', methods=['GET'])
 def handle_status():
     """Get connection status"""
-    global ser
-    if ser and ser.is_open:
-        return jsonify({"status": "success", "connected": True, "port": connected_port})
+    global ser, mapping_was_reloaded
+    check_for_changes()
+
+    res = {
+        "status": "success",
+        "connected": bool(ser and ser.is_open),
+        "port": connected_port,
+        "mapping_reloaded": mapping_was_reloaded,
+        "mapping_error": mapping_error
+    }
     
-    # Try to auto-connect if not connected
-    if auto_connect_serial():
-         return jsonify({"status": "success", "connected": True, "port": connected_port})
-         
-    return jsonify({"status": "success", "connected": False})
+    if mapping_was_reloaded:
+        res["gases"] = gas_mappings
+        mapping_was_reloaded = False # Reset flag after sending
+        
+    if not res["connected"]:
+        # Try to auto-connect if not connected
+        if auto_connect_serial():
+            res["connected"] = True
+            res["port"] = connected_port
+            
+    return jsonify(res)
 
 @app.route('/purge', methods=['POST'])
 def handle_purge():
     """Send purge command to Arduino"""
     global ser
+    check_for_changes()
     if not ser or not ser.is_open:
         # Try one last auto-connect
         if not auto_connect_serial():
@@ -155,4 +243,12 @@ def handle_purge():
 
 if __name__ == '__main__':
     load_gas_mappings()
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    mapping_was_reloaded = False # Reset flag so first load doesn't show reload notification
+    
+    # Get configuration from environment variables if available
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+    
+    logging.info(f"Starting Gas Controller on {host}:{port} (Debug: {debug})")
+    app.run(host=host, port=port, debug=debug)

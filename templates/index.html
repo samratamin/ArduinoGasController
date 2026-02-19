@@ -48,6 +48,36 @@
         .status-area { margin-top: 20px; padding: 8px 12px; background-color: #f8f9fa; border-radius: 6px; font-size: 12px; text-align: center; border: 1px solid #eee; min-height: 20px; transition: all 0.3s; }
         .error { color: #dc3545; background-color: #fff5f5; border-color: #ffc9c9; }
         .success { color: #28a745; background-color: #f6fff6; border-color: #c3e6cb; }
+
+        .mapping-error {
+            margin-top: 15px; 
+            padding: 10px; 
+            background: #fff5f5; 
+            border: 1px solid #ffc9c9; 
+            border-radius: 8px; 
+            font-size: 11px;
+            color: #d63031;
+        }
+        .code-box {
+            background: #2d3436;
+            color: #fab1a0;
+            padding: 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            display: block;
+            margin: 5px 0;
+            font-size: 10px;
+        }
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 10px;
+            background: #0984e3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -60,7 +90,7 @@
         </div>
 
         <div class="form-group">
-            <label for="gasSelection">Target Gas</label>
+            <label for="gasSelection">Purge Gas</label>
             <select id="gasSelection">
                 {% for gas in gases %}
                 <option value="{{ gas.Gas }}">{{ gas.Gas }}</option>
@@ -78,6 +108,15 @@
         <div class="status-area" id="statusArea">
             Connecting...
         </div>
+
+        <div id="mappingErrorBox" class="mapping-error" style="display: {{ 'block' if mapping_error else 'none' }}">
+            <strong>⚠️ Configuration Error:</strong>
+            <p id="errorText" style="margin: 5px 0;">{{ mapping_error }}</p>
+            <p style="margin: 5px 0;">Ensure CSV (example below) is correctly formatted with <strong>commas</strong>: </p>
+            <span class="code-box">Gas,Pin<br>Helium,4<br>Nitrogen,5</span>
+            <p style="margin: 5px 0;">If you are unsure, you can optionally regenerate a new template file using the button below:</p>
+            <button id="regenBtn" class="btn-small">Regenerate Default Template</button>
+        </div>
     </div>
 
     <script>
@@ -88,16 +127,29 @@
         const connectionBanner = document.getElementById('connectionBanner');
         const gasSelection = document.getElementById('gasSelection');
         const purgeTimeInput = document.getElementById('purgeTime');
+        const mappingErrorBox = document.getElementById('mappingErrorBox');
+        const errorText = document.getElementById('errorText');
+        const regenBtn = document.getElementById('regenBtn');
 
         function updateStatus() {
             fetch('/status')
             .then(res => res.json())
             .then(data => {
-                if (data.connected) {
+                // Update mapping errors if any
+                if (data.mapping_error) {
+                    mappingErrorBox.style.display = 'block';
+                    errorText.innerText = data.mapping_error;
+                    purgeBtn.disabled = true;
+                } else {
+                    mappingErrorBox.style.display = 'none';
+                }
+
+                if (data.connected && !data.mapping_error) {
                     statusText.innerText = 'Connected: ' + data.port;
                     statusText.className = 'status-connected-text';
                     statusDot.className = 'status-dot status-connected-dot';
                     purgeBtn.disabled = false;
+                    
                     if (statusArea.innerText === 'Connecting...' || statusArea.innerText === 'Initializing serial scan...') {
                         statusArea.innerText = 'Ready';
                     }
@@ -108,6 +160,27 @@
                     purgeBtn.disabled = true;
                     statusArea.innerText = 'Initializing serial scan...';
                 }
+
+                if (data.mapping_reloaded) {
+                    // Update dropdown
+                    gasSelection.innerHTML = '';
+                    data.gases.forEach(gas => {
+                        const opt = document.createElement('option');
+                        opt.value = gas.Gas;
+                        opt.innerText = gas.Gas;
+                        gasSelection.appendChild(opt);
+                    });
+                    
+                    // Show reload status
+                    statusArea.innerText = 'CSV Mapping Reloaded!';
+                    statusArea.className = 'status-area success';
+                    setTimeout(() => {
+                        if (statusArea.innerText === 'CSV Mapping Reloaded!') {
+                           statusArea.innerText = 'Ready';
+                           statusArea.className = 'status-area';
+                        }
+                    }, 5000);
+                }
             })
             .catch(err => {
                 statusText.innerText = 'Server Offline';
@@ -117,6 +190,22 @@
 
         setInterval(updateStatus, 3000);
         updateStatus();
+
+        regenBtn.addEventListener('click', () => {
+            if (confirm("This will overwrite your current GasMapping.csv with a default template. Continue?")) {
+                fetch('/regenerate_mapping', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    statusArea.innerText = data.message;
+                    statusArea.className = 'status-area success';
+                    setTimeout(updateStatus, 500); // Quick refresh after regeneration
+                })
+                .catch(err => {
+                    statusArea.innerText = 'Regeneration failed';
+                    statusArea.className = 'status-area error';
+                });
+            }
+        });
 
         purgeBtn.addEventListener('click', () => {
             const gas = gasSelection.value;
